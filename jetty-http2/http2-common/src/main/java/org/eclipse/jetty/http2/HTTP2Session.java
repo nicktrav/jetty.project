@@ -719,9 +719,11 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
         // SPEC: exceeding max concurrent streams is treated as stream error.
         while (true)
         {
-            int remoteCount = remoteStreamCount.get() - closing.get();
+            int closingCount = closing.get();
+            int remoteCount = remoteStreamCount.get();
             int maxCount = getMaxRemoteStreams();
-            if (maxCount >= 0 && remoteCount >= maxCount)
+                        
+            if (maxCount >= 0 && (remoteCount-closingCount) >= maxCount)
             {
                 reset(new ResetFrame(streamId, ErrorCode.REFUSED_STREAM_ERROR.code), Callback.NOOP);
                 return null;
