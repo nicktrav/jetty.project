@@ -18,6 +18,35 @@
 
 package org.eclipse.jetty.http2;
 
+/**
+ * <pre>
+ *            NOT_CLOSED
+ *              /    \            
+ *             /      \ gen            
+ *        rcv /        \eos     
+ *        eos/          \
+ *          /            \                     
+ *         /              \      
+ *        v                v        
+ * REMOTELY_CLOSED  LOCALLY_CLOSING        
+ *        |          /      |                    
+ *        |         /       |                       
+ *     gen|        /rcv     |snd                    
+ *     eos|       / eos     |eos                  
+ *        |      /          |    
+ *        |     /           |        
+ *        v    v            |         
+ *       CLOSING    LOCALLY_CLOSED             
+ *         \               /          
+ *          \             /           
+ *        snd\           /rcv            
+ *        eos \         / eos            
+ *             \       /              
+ *              \     /               
+ *               v   v
+ *               CLOSED                             
+ * </pre>
+ */
 public enum CloseState
 {
     NOT_CLOSED,      // Stream is open
