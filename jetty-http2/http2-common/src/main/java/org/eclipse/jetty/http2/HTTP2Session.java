@@ -76,6 +76,7 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
     private final AtomicInteger sendWindow = new AtomicInteger();
     private final AtomicInteger recvWindow = new AtomicInteger();
     private final AtomicReference<CloseState> closed = new AtomicReference<>(CloseState.NOT_CLOSED);
+    private final AtomicInteger closing = new AtomicInteger();
     private final AtomicLong bytesWritten = new AtomicLong();
     private final Scheduler scheduler;
     private final EndPoint endPoint;
@@ -718,7 +719,7 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
         // SPEC: exceeding max concurrent streams is treated as stream error.
         while (true)
         {
-            int remoteCount = remoteStreamCount.get();
+            int remoteCount = remoteStreamCount.get() - closing.get();
             int maxCount = getMaxRemoteStreams();
             if (maxCount >= 0 && remoteCount >= maxCount)
             {
@@ -1123,6 +1124,12 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
         super.dump(out, indent);
         dump(out, indent, Collections.singleton(new DumpableCollection("streams", streams.values())));
     }
+    
+    @Override
+    public void updateClosing(int inc)
+    {   
+        closing.addAndGet(inc);
+    }
 
     @Override
     public String toString()
@@ -1167,6 +1174,8 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
             bytes = frameBytes = generator.control(lease, frame);
             if (LOG.isDebugEnabled())
                 LOG.debug("Generated {}", frame);
+            if (frame instanceof HeadersFrame && ((HeadersFrame)frame).isEndStream())
+                stream.updateLocalClosing();
             prepare();
             return true;
         }
@@ -1317,7 +1326,8 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
             int length = Math.min(dataBytes, window);
 
             // Only one DATA frame is generated.
-            bytes = frameBytes = generator.data(lease, (DataFrame)frame, length);
+            DataFrame dataFrame = (DataFrame)frame;
+            bytes = frameBytes = generator.data(lease, dataFrame, length);
             int written = bytes - Frame.HEADER_LENGTH;
             if (LOG.isDebugEnabled())
                 LOG.debug("Generated {}, length/window/data={}/{}/{}", frame, written, window, dataBytes);
@@ -1326,7 +1336,9 @@ public abstract class HTTP2Session extends ContainerLifeCycle implements ISessio
             this.dataBytes -= written;
 
             flowControl.onDataSending(stream, written);
-
+            if (dataFrame.isEndStream())
+                stream.updateLocalClosing();
+            
             return true;
         }
 

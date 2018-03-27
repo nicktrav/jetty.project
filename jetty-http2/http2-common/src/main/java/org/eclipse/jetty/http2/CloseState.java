@@ -20,5 +20,10 @@ package org.eclipse.jetty.http2;
 
 public enum CloseState
 {
-    NOT_CLOSED, LOCALLY_CLOSED, REMOTELY_CLOSED, CLOSED
+    NOT_CLOSED,      // Stream is open
+    LOCALLY_CLOSING, // An end of stream frame has been generated. 
+    LOCALLY_CLOSED,  // An end of stream frame has been generated and sent. 
+    REMOTELY_CLOSED, // An end of stream frame has been received
+    CLOSING,         // An end of stream frame has been received and generated, but not yet sent.
+    CLOSED           // An end of stream frame has been received, generated and sent
 }

@@ -133,4 +133,10 @@ public interface ISession extends Session
      * @return the number of bytes written by this session
      */
     public long getBytesWritten();
+
+    /**
+     * Update the number of streams that have a generated local end of Stream outstanding
+     * @param inc increment
+     */
+    public void updateClosing(int inc);
 }

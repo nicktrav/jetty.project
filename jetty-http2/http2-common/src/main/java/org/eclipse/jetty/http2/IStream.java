@@ -116,4 +116,9 @@ public interface IStream extends Stream, Closeable
      * @see #isClosed()
      */
     boolean isRemotelyClosed();
+
+    /** 
+     * Called when an endOfStream has been generated
+     */
+    public void updateLocalClosing();
 }

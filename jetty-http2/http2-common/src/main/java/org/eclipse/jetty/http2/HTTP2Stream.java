@@ -322,40 +322,66 @@ public class HTTP2Stream extends IdleTimeout implements IStream, Callback, Dumpa
     }
 
     @Override
-    public boolean updateClose(boolean update, boolean local)
+    public void updateLocalClosing()
     {
         if (LOG.isDebugEnabled())
-            LOG.debug("Update close for {} close={} local={}", this, update, local);
-
-        if (!update)
-            return false;
-
+            LOG.debug("Update closing for {}", this);
         while (true)
         {
-            CloseState current = closeState.get();
-            switch (current)
+            switch (closeState.get())
             {
                 case NOT_CLOSED:
+                    if (closeState.compareAndSet(CloseState.NOT_CLOSED, CloseState.LOCALLY_CLOSING))
+                        return;
+                    break;
+
+                case REMOTELY_CLOSED:
+                    if (closeState.compareAndSet(CloseState.REMOTELY_CLOSED, CloseState.CLOSING))
+                    {
+                        session.updateClosing(1);
+                        return;
+                    }
+                    break;
+
+                default:
+                    return;
+            }
+        }
+    }
+
+    public boolean updateLocalClose()
+    {
+        while (true)
+        {
+            switch (closeState.get())
+            {
+                case LOCALLY_CLOSING:
                 {
-                    CloseState newValue = local ? CloseState.LOCALLY_CLOSED : CloseState.REMOTELY_CLOSED;
-                    if (closeState.compareAndSet(current, newValue))
+                    if (closeState.compareAndSet(CloseState.LOCALLY_CLOSING, CloseState.LOCALLY_CLOSED))
                         return false;
                     break;
                 }
-                case LOCALLY_CLOSED:
+                    
+                case NOT_CLOSED:
                 {
-                    if (local)
+                    if (closeState.compareAndSet(CloseState.NOT_CLOSED, CloseState.LOCALLY_CLOSED))
                         return false;
+                    break;
+                }
+                                
+                case CLOSING:
+                {
+                    session.updateClosing(-1);
                     close();
                     return true;
                 }
+                    
                 case REMOTELY_CLOSED:
                 {
-                    if (!local)
-                        return false;
                     close();
                     return true;
                 }
+                
                 default:
                 {
                     return false;
@@ -363,6 +389,65 @@ public class HTTP2Stream extends IdleTimeout implements IStream, Callback, Dumpa
             }
         }
     }
+
+    public boolean updateRemoteClose()
+    {
+        while (true)
+        {
+            switch (closeState.get())
+            {
+                case NOT_CLOSED:
+                {
+                    if (closeState.compareAndSet(CloseState.NOT_CLOSED, CloseState.REMOTELY_CLOSED))
+                        return false;
+                    break;
+                }
+                
+                case LOCALLY_CLOSING:
+                {
+                    if (closeState.compareAndSet(CloseState.LOCALLY_CLOSING,CloseState.CLOSING))
+                    {
+                        session.updateClosing(1);
+                        return false;
+                    }
+                    break;
+                }
+                
+                case LOCALLY_CLOSED:
+                {
+                    close();
+                    return true;
+                }
+                
+                case CLOSING:
+                {
+                    session.updateClosing(-1);
+                    close();
+                    return true;
+                }
+
+                default:
+                {
+                    return false;
+                }
+            }
+        }
+    }
+    
+    @Override
+    public boolean updateClose(boolean endStream, boolean local)
+    {
+        if (LOG.isDebugEnabled())
+            LOG.debug("Update close for {} close={} local={}", this, endStream, local);
+
+        if (!endStream)
+            return false;
+
+        if (local)
+            return updateLocalClose();
+        return updateRemoteClose();
+    }
+
 
     public int getSendWindow()
     {
