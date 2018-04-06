@@ -95,7 +95,7 @@ public class TestJettyOSGiBootWithJsp
     }
 
    
-    @Test
+    @Test(timeout = 60000)
     public void testJspDump() throws Exception
     {
         HttpClient client = new HttpClient();

@@ -18,11 +18,15 @@
 
 package org.eclipse.jetty.osgi.test;
 
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThat;
 import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
 
-import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +41,7 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.osgi.boot.OSGiServerConstants;
-import org.eclipse.jetty.toolchain.test.OS;
+import org.eclipse.jetty.toolchain.test.MavenTestingUtils;
 import org.eclipse.jetty.util.StringUtil;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.junit.Assert;
@@ -53,37 +57,58 @@ import org.osgi.service.http.HttpService;
  */
 public class TestOSGiUtil
 {
+    public static final int RUNTIME_PLATFORM;
+    public static final boolean RUNTIME_SUPPORTS_ALPN_BOOT;
+
+    static
+    {
+        String javaVer[] = System.getProperty("java.specification.version").split("\\.");
+        int platform = Integer.parseInt(javaVer[0]);
+        if(platform < 9) {
+            platform = Integer.parseInt(javaVer[1]);
+        }
+        RUNTIME_PLATFORM = platform;
+        RUNTIME_SUPPORTS_ALPN_BOOT = RUNTIME_PLATFORM < 9;
+    }
 
     public static List<Option> configureJettyHomeAndPort(boolean ssl,String jettySelectorFileName)
     {
-        File etc = new File(OS.separators("src/test/config/etc"));
-        
+        Path home = MavenTestingUtils.getProjectDirPath("src/test/config").toAbsolutePath();
+        Path etc = home.resolve("etc");
+
         List<Option> options = new ArrayList<>();
         StringBuffer xmlConfigs = new StringBuffer();
-        xmlConfigs.append(new File(etc, "jetty.xml").toURI());
+        xmlConfigs.append(toURI(etc, "jetty.xml"));
         xmlConfigs.append(";");
         if (ssl)
         {
             options.add(CoreOptions.systemProperty("jetty.ssl.port").value("0"));
-            xmlConfigs.append(new File(etc, "jetty-ssl.xml").toURI());
+            xmlConfigs.append(toURI(etc, "jetty-ssl.xml"));
             xmlConfigs.append(";");
-            xmlConfigs.append(new File(etc, "jetty-alpn.xml").toURI());
+            xmlConfigs.append(toURI(etc, "jetty-alpn.xml"));
             xmlConfigs.append(";");
-            xmlConfigs.append(new File(etc, "jetty-https.xml").toURI());
+            xmlConfigs.append(toURI(etc, "jetty-https.xml"));
             xmlConfigs.append(";");
 
         }
-        xmlConfigs.append(new File(etc, jettySelectorFileName).toURI());
+        xmlConfigs.append(etc.resolve(jettySelectorFileName).toUri());
         xmlConfigs.append(";");
-        xmlConfigs.append(new File(etc, "jetty-deployer.xml").toURI());
+        xmlConfigs.append(toURI(etc, "jetty-deployer.xml"));
         xmlConfigs.append(";");
-        xmlConfigs.append(new File(etc, "jetty-testrealm.xml").toURI());
+        xmlConfigs.append(toURI(etc, "jetty-testrealm.xml"));
 
         options.add(systemProperty(OSGiServerConstants.MANAGED_JETTY_XML_CONFIG_URLS).value(xmlConfigs.toString()));
         options.add(systemProperty("jetty.http.port").value("0"));
-        options.add(systemProperty("jetty.home").value(etc.getParentFile().getAbsolutePath()));
-        options.add(systemProperty("jetty.base").value(etc.getParentFile().getAbsolutePath()));
+        options.add(systemProperty("jetty.home").value(home.toString()));
+        options.add(systemProperty("jetty.base").value(home.toString()));
         return options;
+    }
+
+    public static URI toURI(Path base, String relative)
+    {
+        Path dest = base.resolve(relative);
+        assertThat("File exists :" + dest, Files.exists(dest), is(true));
+        return dest.toUri();
     }
 
     public static List<Option> provisionCoreJetty()
