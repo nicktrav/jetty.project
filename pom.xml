@@ -95,6 +95,7 @@
     <!-- modules that need fixed and added back, or simply dropped and not maintained -->
     <!-- <module>jetty-rhttp</module> -->
     <!-- <module>jetty-overlay-deployer</module> -->
+    <module>jetty-thread-test</module>
   </modules>
 
   <build>
