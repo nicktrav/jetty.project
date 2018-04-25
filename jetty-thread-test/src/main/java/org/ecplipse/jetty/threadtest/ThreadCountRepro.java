@@ -44,7 +44,7 @@ public class ThreadCountRepro {
   private static final int MAX_THREADS = 300;
   private static final int THREAD_KEEPALIVE_SECS = 20;
 
-  private static final String KEYSTORE_PATH = "/tmp/foo.jceks";
+  private static final String KEYSTORE_PATH = "/data/app/keys.jceks";
   private static final String KEYSTORE_PASS = "CHANGE";
 
   public static void main(String ...args) throws Exception {
