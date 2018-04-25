@@ -1,0 +1,17 @@
+FROM alpine
+
+RUN apk update && \
+  apk --no-cache add bash curl libc6-compat openjdk8 unzip
+
+RUN mkdir -p /tmp/YourKit-JavaProfiler-2017.02/bin/linux-x86-64 && \
+  cd /tmp/YourKit-JavaProfiler-2017.02/bin/linux-x86-64 && \
+  curl -O https://www.yourkit.com/download/tmp/20180206/libyjpagent.so
+
+ADD jetty-thread-test/target/server.jar /data/app/
+ADD run.sh /data/app/
+ADD keys.jceks /data/app/
+
+EXPOSE 10001
+EXPOSE 1338
+
+ENTRYPOINT ["/data/app/run.sh"]
